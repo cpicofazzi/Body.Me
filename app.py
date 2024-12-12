@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import os
+import datetime
 
 class FitnessTracker:
     def __init__(self):
@@ -149,7 +150,48 @@ class FitnessTracker:
                 success = self.add_entry(entry_date, weight, calories,protein)
                 if success:
                     st.success("Entry added successfully!")            
-                    
+    
+    def create_calorie_fill_up_widget(self):
+        """
+        Create widget showing filling up of allocated calories per week
+        """
+        # Calculate weekly calorie allocation and current week's fill-up percentage
+        st.session_state.entries['Week'] = pd.to_datetime(st.session_state.entries['Date']).dt.isocalendar().week
+        st.session_state.entries['Year'] = pd.to_datetime(st.session_state.entries['Date']).dt.isocalendar().year
+        st.session_state.entries['Year_Week'] = st.session_state.entries['Year'].astype(str) + '_' + st.session_state.entries['Week'].astype(str).str.zfill(2)
+        weekly_allocation = 17_500  # Assuming a standard weekly allocation of 17_500 calories
+        today = datetime.datetime.today()
+        current_yearweek = f"{today.isocalendar().year}_{str(today.isocalendar().week).zfill(2)}"
+        
+        current_week_fill_up = (st.session_state.entries[st.session_state.entries['Year_Week'] == current_yearweek]['Calories'].sum()) / weekly_allocation 
+       
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fill_up_bar = st.progress(current_week_fill_up)
+
+        with col2:
+            current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == current_yearweek]['Calories'].sum()
+            display_text = f"Current Week: {current_week_calories} / {weekly_allocation}"
+            st.write(display_text)
+            
+
+        # Display dropdown for selecting other weeks' fill-ups
+        selected_week = st.selectbox('Select Week', options=[week for week in sorted(st.session_state.entries['Week'].unique())])
+        selected_yearweek = f"{today.isocalendar().year}_{str(selected_week).zfill(2)}"
+        if selected_yearweek != current_yearweek:
+            
+            col1, col2 = st.columns(2)
+        
+            with col1:
+                # fill_up_bar = st.progress(current_week_fill_up_other)
+                pass
+
+            with col2:
+                current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == selected_yearweek]['Calories'].sum()
+                display_text = f"Selected Week: {current_week_calories} / {weekly_allocation}"
+                st.write(display_text)
             
             
     def display_entries(self):
@@ -240,8 +282,9 @@ class FitnessTracker:
             else:
                 self.load_csv(os.path.join(self.data_dir,self.data_fn))
         
-        self.input_form()
         
+        self.input_form()
+        self.create_calorie_fill_up_widget()
         # Display entries and visualizations
         self.display_entries()
         self.delete_button()
