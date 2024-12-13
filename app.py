@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import datetime
-
+CAL_PER_POUND = 3_500
 class FitnessTracker:
     def __init__(self):
         # Create a directory for data storage if it doesn't exist
@@ -269,28 +269,47 @@ class FitnessTracker:
             y=[main_threshold] * len(month_names),
             mode='lines',
             line=dict(color="red", width=2, dash="dash"),
-            name=f"Maintenence Threshold ({main_threshold} calories)"
+            name=f"Maintenence Threshold \n({main_threshold} calories)"
         )
         goal_line = go.Scatter(
             x=month_names,
             y=[goal_threshold] * len(month_names),
             mode='lines',
             line=dict(color="green", width=1, dash="dashdot"),
-            name=f"Goal Threshold ({goal_threshold} calories)"
+            name=f"Goal Threshold \n({goal_threshold} calories)"
         )
         
         fig.add_trace(threshold_line)
         fig.add_trace(goal_line)
         
+        # Add hover-over text for each bar
+        # for i, trace in enumerate(fig.data):
+        fig.add_trace(go.Scatter(
+            x=month_names,
+            y=[0] * len(month_names),
+            mode='lines',
+            line=dict(color="black", width=0.5),
+            hoverinfo='text',
+            hovertext=[f"{yearmonth} |    {(goal_threshold - y_value)/CAL_PER_POUND:.2f} to goal  {(main_threshold - y_value)/CAL_PER_POUND:.2f} to maintain" for yearmonth, y_value, in zip(month_names, sorted_grouped_entries[column_name],)],
+            showlegend=False,
+        ),
+                    )
+
         fig.update_layout(
+            hovermode='x',
             xaxis_title='Month and Year',
-            yaxis_title='Total Calories',
+            yaxis_title='Weekly Calories',
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=0.01,
                 xanchor="right",
                 x=1
+            ),
+            hoverlabel=dict(
+                bgcolor="#f7d2c4",  # Add this line, change the color as needed
+                bordercolor="#666",
+                font_size=18,
             )
         )
         
