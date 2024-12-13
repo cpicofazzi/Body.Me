@@ -175,23 +175,25 @@ class FitnessTracker:
             current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == current_yearweek]['Calories'].sum()
             display_text = f"Current Week: {current_week_calories} / {weekly_allocation}"
             st.write(display_text)
-            
+        
+        # Historical fill up barchart
+        st.plotly_chart(self._make_bar_plot(column_name="Calories"))
 
         # Display dropdown for selecting other weeks' fill-ups
-        selected_week = st.selectbox('Select Week', options=[week for week in sorted(st.session_state.entries['Week'].unique())])
-        selected_yearweek = f"{today.isocalendar().year}_{str(selected_week).zfill(2)}"
-        if selected_yearweek != current_yearweek:
+        # selected_week = st.selectbox('Select Week', options=[week for week in sorted(st.session_state.entries['Week'].unique())])
+        # selected_yearweek = f"{today.isocalendar().year}_{str(selected_week).zfill(2)}"
+        # if selected_yearweek != current_yearweek:
             
-            col1, col2 = st.columns(2)
+        #     col1, col2 = st.columns(2)
         
-            with col1:
-                # fill_up_bar = st.progress(current_week_fill_up_other)
-                pass
+        #     with col1:
+        #         # fill_up_bar = st.progress(current_week_fill_up_other)
+        #         pass
 
-            with col2:
-                current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == selected_yearweek]['Calories'].sum()
-                display_text = f"Selected Week: {current_week_calories} / {weekly_allocation}"
-                st.write(display_text)
+        #     with col2:
+        #         current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == selected_yearweek]['Calories'].sum()
+        #         display_text = f"Selected Week: {current_week_calories} / {weekly_allocation}"
+        #         st.write(display_text)
             
             
     def display_entries(self):
@@ -223,6 +225,76 @@ class FitnessTracker:
                 st.plotly_chart(self._make_line_plot(column_name="Calories"))
             with tab3:
                 st.plotly_chart(self._make_line_plot(column_name="Protein"))
+
+    def _make_bar_plot(self, column_name: str) -> go.Figure():
+        # Ensure Date column is datetime
+        st.session_state.entries['Date'] = pd.to_datetime(st.session_state.entries['Date'])
+        
+        # Group by Year-Week and calculate sum of calories for each group
+        grouped_entries = st.session_state.entries.groupby('Year_Week')[column_name].sum().reset_index()
+        
+        fig = go.Figure()
+        # Bar Chart
+        max_calories = st.session_state.entries.groupby('Year_Week')['Calories'].max().reset_index()
+        min_calories = st.session_state.entries.groupby('Year_Week')['Calories'].min().reset_index()
+        # Sort entries by date
+        sorted_grouped_entries = grouped_entries.sort_values('Year_Week')
+        
+        goal_threshold = 17_500
+        main_threshold = 21_000
+        
+        bar_colors = []
+        for y_value in sorted_grouped_entries[column_name]:
+            if y_value > main_threshold:
+                bar_colors.append("rgba(255, 22, 0, 0.68)") # Red color
+            elif y_value > goal_threshold:
+                bar_colors.append("rgba(255, 207, 56, 0.51)") # orange color
+            else:
+                bar_colors.append("rgba(99, 219, 67, 0.51)") # green color
+        
+        years = [int(year) for year in sorted_grouped_entries['Year_Week'].str.split('_').str[0]]
+        weeks = [int(week) % 52 + 1 for week in sorted_grouped_entries['Year_Week'].str.split('_').str[1]]
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        month_names = [f"{month} {year}" for year, week, month in zip(years, weeks, months)]
+        
+        fig.add_trace(go.Bar(
+            x=month_names,
+            y=sorted_grouped_entries[column_name],
+            name="Weekly Calories",
+            marker=dict(color=bar_colors) 
+        ))
+        threshold_line = go.Scatter(
+            x=month_names,
+            y=[main_threshold] * len(month_names),
+            mode='lines',
+            line=dict(color="red", width=2, dash="dash"),
+            name=f"Maintenence Threshold ({main_threshold} calories)"
+        )
+        goal_line = go.Scatter(
+            x=month_names,
+            y=[goal_threshold] * len(month_names),
+            mode='lines',
+            line=dict(color="green", width=1, dash="dashdot"),
+            name=f"Goal Threshold ({goal_threshold} calories)"
+        )
+        
+        fig.add_trace(threshold_line)
+        fig.add_trace(goal_line)
+        
+        fig.update_layout(
+            xaxis_title='Month and Year',
+            yaxis_title='Total Calories',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=0.01,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        return fig
 
     def _make_line_plot(self, column_name: str) -> go.Figure():
         
