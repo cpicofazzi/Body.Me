@@ -9,9 +9,16 @@ class FitnessTracker:
     def __init__(self):
         # Create a directory for data storage if it doesn't exist
         self.data_dir = 'fitness_data'
-        self.data_fn = "daily_data.csv"
+        # self.data_fn = "daily_data.csv"
         os.makedirs(self.data_dir, exist_ok=True)
         self.data_cols = ['Date', 'Weight', 'Calories', 'Protein']
+        
+        self.profiles = {
+            "Christian Picofazzi": {"csv_file": "daily_data.csv"},
+            "Julian Picofazzi": {"csv_file": "profile2.csv"},
+            "Ava Picofazzi": {"csv_file": "profile3.csv"},
+            # Add more profiles here
+        }
         # Initialize session state for storing entries
         if 'entries' not in st.session_state:
             st.session_state.entries = pd.DataFrame(columns=self.data_cols)
@@ -26,7 +33,9 @@ class FitnessTracker:
             save_df['Date'] = save_df['Date'].astype(str)
             
             # Generate filename with current timestamp
-            filename = os.path.join(self.data_dir,self.data_fn)
+            profile_data = self.profiles[selected_profile]
+            data_fn = os.path.join(self.data_dir, profile_data["csv_file"])
+            filename = os.path.join(self.data_dir,data_fn)
             
             save_df.to_csv(filename, index=False)
             st.success(f"Entries saved to {filename}")
@@ -56,7 +65,53 @@ class FitnessTracker:
         
         except Exception as e:
             st.error(f"Error loading CSV: {e}")
+    def add_morning_entry(self, entry_date, weight, sleep_hours):
+        # Ensure date is datetime
+        entry_date = pd.to_datetime(entry_date)
+        
+        # Check if date already exists in DataFrame
+        existing_entries_loc = st.session_state.entries[st.session_state.entries['Date'] == entry_date].index
+        print(existing_entries_loc)
+        if not existing_entries_loc.empty:
+            for replace_loc in existing_entries_loc.values:
+                st.session_state.entries.loc[replace_loc,"Weight"]= weight
+                st.session_state.entries.loc[replace_loc,"Hours of Sleep"] = sleep_hours
+        else:
+            # If date does not exist, add a new row
+            st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame(
+                {'Date': [entry_date],
+                'Weight': [weight],
+                'Calories': [0],
+                'Protein': [0],
+                'Hours of Sleep':[sleep_hours]},
+                index=[len(st.session_state.entries)]
+            )], ignore_index=True)
 
+    def add_afternoon_entry(self, entry_date, calories, protein):
+        # Ensure date is datetime
+        entry_date = pd.to_datetime(entry_date)
+        
+        # Check if date already exists in DataFrame
+        existing_entries_loc = st.session_state.entries[st.session_state.entries['Date'] == entry_date].index
+        print(existing_entries_loc)
+        if not existing_entries_loc.empty:
+            for replace_loc in existing_entries_loc.values:
+                # If date already exists, append new values to the corresponding row
+                st.session_state.entries.loc[replace_loc,"Calories"]= calories
+                st.session_state.entries.loc[replace_loc,"Protein"] = protein
+            
+            
+        else:
+            # If date does not exist, add a new row
+            st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame(
+                {'Date': [entry_date],
+                'Weight': [0],  # assuming morning weight is added separately
+                'Calories': [calories],
+                'Protein': [protein],
+                'Hours of Sleep':[0]},
+                index=[len(st.session_state.entries)]
+            )], ignore_index=True)
+        
     def add_entry(self, date, weight, calories, protein):
         """
         Add a new entry to the fitness tracker with robust error checking
@@ -123,7 +178,57 @@ class FitnessTracker:
                 if st.form_submit_button("Delete Entry"):
                     self.remove_entry_by_date(selected_date)
                     
-        self.save_to_csv()
+                self.save_to_csv()
+        
+        
+    def add_entry_morning_form(self):
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            entry_date = st.date_input("Date", key="morning_date")
+            
+        with col2:
+            weight = st.number_input("Weight (lbs)", min_value=0.0, step=0.1, key="weight_input")
+            
+        with col3:
+            calories = 0
+            
+        with col4:
+            protein = 0
+        
+        sleep_hours = st.number_input("Hours of Sleep", min_value=0.0, key="sleep_hours_input")
+        
+        # Create a form
+        morning_form = st.form("Morning_Entry_Form")
+        
+        # Add the submit button within the form
+        with morning_form:
+            submit_button = st.form_submit_button("Add Morning Entry")
+            
+        if submit_button:
+            self.add_morning_entry(entry_date, weight,sleep_hours)
+
+    def add_entry_night_form(self):
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            entry_date = st.date_input("Date", key="night_date")
+            
+        with col2:
+            calories = st.number_input("Calories", min_value=0, key="calories_input")
+            
+        with col3:
+            protein = st.number_input("Protein", min_value=0, key="protein_input")
+            
+        # Create a form
+        night_form = st.form("Night_Entry_Form")
+        
+        # Add the submit button within the form
+        with night_form:
+            submit_button = st.form_submit_button("Add Night Entry")
+
+        if submit_button:
+            self.add_afternoon_entry(entry_date, calories, protein)
         
     def input_form(self):
         """
@@ -178,24 +283,7 @@ class FitnessTracker:
         
         # Historical fill up barchart
         st.plotly_chart(self._make_bar_plot(column_name="Calories"))
-
-        # Display dropdown for selecting other weeks' fill-ups
-        # selected_week = st.selectbox('Select Week', options=[week for week in sorted(st.session_state.entries['Week'].unique())])
-        # selected_yearweek = f"{today.isocalendar().year}_{str(selected_week).zfill(2)}"
-        # if selected_yearweek != current_yearweek:
-            
-        #     col1, col2 = st.columns(2)
-        
-        #     with col1:
-        #         # fill_up_bar = st.progress(current_week_fill_up_other)
-        #         pass
-
-        #     with col2:
-        #         current_week_calories = st.session_state.entries[st.session_state.entries['Year_Week'] == selected_yearweek]['Calories'].sum()
-        #         display_text = f"Selected Week: {current_week_calories} / {weekly_allocation}"
-        #         st.write(display_text)
-            
-            
+ 
     def display_entries(self):
         """
         Display existing entries and provide delete functionality
@@ -350,13 +438,31 @@ class FitnessTracker:
             line=dict(color='rgba(0, 173, 114, 1)', width=1.0)
         )
         return fig
+    
+    def load_data(self, selected_profile):
+        """
+        Load data from the selected profile's csv file.
+        """
+        profile_data = self.profiles[selected_profile]
+        data_fn_path = os.path.join(self.data_dir, profile_data["csv_file"])
+        
+        if not os.path.exists(data_fn_path):
+            st.error(f"No CSV file found for {selected_profile}")
+            return
+        
+        try:
+            self.load_csv(data_fn_path)
+            
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
 
     def app(self):
         """
         Main Streamlit application
         """
         st.title("Body.Me")
-        
+        profile_names = list(self.profiles.keys())
+        selected_profile = st.selectbox('Select Profile', options=profile_names)
         # Sidebar for CSV operations
         with st.sidebar:
             if st.button('Show/Hide CSV Operations'):
@@ -364,17 +470,25 @@ class FitnessTracker:
                 
                 # CSV Upload
                 uploaded_file = st.file_uploader("Load Previous Entries", type=['csv'])
-                print(uploaded_file, type(uploaded_file))
+                
                 if uploaded_file is not None:
                     self.load_csv(uploaded_file)  
                 # Save Current Entries Button
                 if st.button("Save Current Entries"):
                     self.save_to_csv()
-            else:
-                self.load_csv(os.path.join(self.data_dir,self.data_fn))
+    
+                
+            
         
-        
-        self.input_form()
+        # Load data from the selected profile
+        self.load_data(selected_profile)
+        tab1, tab2 = st.tabs(["Morning Form", "Night Form"])
+                
+        with tab1:
+            self.add_entry_morning_form()
+
+        with tab2:
+            self.add_entry_night_form()
         self.create_calorie_fill_up_widget()
         # Display entries and visualizations
         self.display_entries()
