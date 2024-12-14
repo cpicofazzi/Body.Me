@@ -9,9 +9,16 @@ class FitnessTracker:
     def __init__(self):
         # Create a directory for data storage if it doesn't exist
         self.data_dir = 'fitness_data'
-        self.data_fn = "daily_data.csv"
+        # self.data_fn = "daily_data.csv"
         os.makedirs(self.data_dir, exist_ok=True)
         self.data_cols = ['Date', 'Weight', 'Calories', 'Protein']
+        
+        self.profiles = {
+            "Christian Picofazzi": {"csv_file": "daily_data.csv"},
+            "Julian Picofazzi": {"csv_file": "profile2.csv"},
+            "Ava Picofazzi": {"csv_file": "profile3.csv"},
+            # Add more profiles here
+        }
         # Initialize session state for storing entries
         if 'entries' not in st.session_state:
             st.session_state.entries = pd.DataFrame(columns=self.data_cols)
@@ -26,7 +33,9 @@ class FitnessTracker:
             save_df['Date'] = save_df['Date'].astype(str)
             
             # Generate filename with current timestamp
-            filename = os.path.join(self.data_dir,self.data_fn)
+            profile_data = self.profiles[selected_profile]
+            data_fn = os.path.join(self.data_dir, profile_data["csv_file"])
+            filename = os.path.join(self.data_dir,data_fn)
             
             save_df.to_csv(filename, index=False)
             st.success(f"Entries saved to {filename}")
@@ -429,13 +438,31 @@ class FitnessTracker:
             line=dict(color='rgba(0, 173, 114, 1)', width=1.0)
         )
         return fig
+    
+    def load_data(self, selected_profile):
+        """
+        Load data from the selected profile's csv file.
+        """
+        profile_data = self.profiles[selected_profile]
+        data_fn_path = os.path.join(self.data_dir, profile_data["csv_file"])
+        
+        if not os.path.exists(data_fn_path):
+            st.error(f"No CSV file found for {selected_profile}")
+            return
+        
+        try:
+            self.load_csv(data_fn_path)
+            
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
 
     def app(self):
         """
         Main Streamlit application
         """
         st.title("Body.Me")
-        
+        profile_names = list(self.profiles.keys())
+        selected_profile = st.selectbox('Select Profile', options=profile_names)
         # Sidebar for CSV operations
         with st.sidebar:
             if st.button('Show/Hide CSV Operations'):
@@ -449,10 +476,12 @@ class FitnessTracker:
                 # Save Current Entries Button
                 if st.button("Save Current Entries"):
                     self.save_to_csv()
-            else:
-                self.load_csv(os.path.join(self.data_dir,self.data_fn))
+    
+                
+            
         
-        
+        # Load data from the selected profile
+        self.load_data(selected_profile)
         tab1, tab2 = st.tabs(["Morning Form", "Night Form"])
                 
         with tab1:
