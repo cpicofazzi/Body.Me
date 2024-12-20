@@ -172,7 +172,7 @@ class FitnessTracker:
             with st.form("delete_entry", clear_on_submit=True):
                 selected_date = st.date_input(
                     "Select Date to Delete",
-                    value=min(st.session_state.entries['Date'])
+                    value=max(st.session_state.entries['Date'])
                 )
             
                 if st.form_submit_button("Delete Entry"):
@@ -182,22 +182,21 @@ class FitnessTracker:
         
         
     def add_entry_morning_form(self):
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3, vertical_alignment="center",border=False)
         
         with col1:
             entry_date = st.date_input("Date", key="morning_date")
-            
+            weight = st.number_input("Weight (lbs)", min_value=150.0, step=0.1, key="weight_input")
         with col2:
-            weight = st.number_input("Weight (lbs)", min_value=0.0, step=0.1, key="weight_input")
+            sleep_hours = st.selectbox("Hours of Sleep", options=["<5","5-6","6-7","7-8","8-9","9-10",">10"], key="sleep_hours_input")
+            sleep_quality = st.slider("Sleep Quality", min_value=0,max_value=10,step=1, key="sleep_quality")
             
         with col3:
-            calories = 0
-            
-        with col4:
-            protein = 0
-        
-        sleep_hours = st.number_input("Hours of Sleep", min_value=0.0, key="sleep_hours_input")
-        
+            bed_phone = st.checkbox("Phone before bed?", value=False,key="bed_phone")
+            drink_or_smoke = st.checkbox("Drink or Smoke?", value=False, key="drink_or_smoke")
+            night_terror = st.checkbox("Night Terror", value=False,key="night_terror")
+       
+        dreams_text = st.text_area("Describe Dreams")    
         # Create a form
         morning_form = st.form("Morning_Entry_Form")
         
@@ -209,17 +208,26 @@ class FitnessTracker:
             self.add_morning_entry(entry_date, weight,sleep_hours)
 
     def add_entry_night_form(self):
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3= st.columns(3,vertical_alignment='top')
         
         with col1:
             entry_date = st.date_input("Date", key="night_date")
-            
-        with col2:
             calories = st.number_input("Calories", min_value=0, key="calories_input")
+            dumps = st.number_input("#2", min_value=0, key="dumps")
+        with col2:
             
-        with col3:
             protein = st.number_input("Protein", min_value=0, key="protein_input")
+            carbs = st.number_input("Carbs", min_value=0, key="carbs_input")
+            fats = st.number_input("Fats", min_value=0, key="fats_input")
+        with col3:
+            day_quality = st.slider("Day Quality", min_value=0,max_value=10,step=1, key="day_quality")
+            work_quality = st.slider("Work Quality", min_value=0,max_value=10,step=1, key="work_quality")
             
+        accomplishments = st.multiselect("Daily Activities and Things", options=[
+            "Workout","Cardio","Soccer","Mobility","Spanish","Japanese","Coding Project",
+            "Books","Reading Research","Sick","Sunshine","Creatine","Vitamins","Smoke","Drink","Date",";)","Video Games"])
+        
+        what_happened_text = st.text_area("What happened today?")
         # Create a form
         night_form = st.form("Night_Entry_Form")
         
@@ -229,32 +237,6 @@ class FitnessTracker:
 
         if submit_button:
             self.add_afternoon_entry(entry_date, calories, protein)
-        
-    def input_form(self):
-        """
-        Generate input form.
-        """
-        # Input form
-        with st.form("fitness_entry", clear_on_submit=True):
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                entry_date = st.date_input("Date")
-            
-            with col2:
-                weight = st.number_input("Weight (lbs)", min_value=0.0, step=0.1, key="weight_input")
-            
-            with col3:
-                calories = st.number_input("Calories", min_value=0, key="calories_input")
-            with col4:
-                protein = st.number_input("Protein", min_value=0, key="protein_input")
-            
-            submit_button = st.form_submit_button("Add Entry")
-            
-            if submit_button:
-                success = self.add_entry(entry_date, weight, calories,protein)
-                if success:
-                    st.success("Entry added successfully!")            
     
     def create_calorie_fill_up_widget(self):
         """
@@ -437,6 +419,23 @@ class FitnessTracker:
             name='Quarterly Rolling Average',
             line=dict(color='rgba(0, 173, 114, 1)', width=1.0)
         )
+        fig.update_layout(
+            hovermode='x',
+            xaxis_title='Date',
+            yaxis_title=column_name,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=0.01,
+                xanchor="right",
+                x=1
+            ),
+            hoverlabel=dict(
+                bgcolor="#f7d2c4",  # Add this line, change the color as needed
+                bordercolor="#666",
+                font_size=18,
+            )
+        )
         return fig
     
     def load_data(self, selected_profile):
@@ -465,23 +464,24 @@ class FitnessTracker:
         selected_profile = st.selectbox('Select Profile', options=profile_names)
         # Sidebar for CSV operations
         with st.sidebar:
-            if st.button('Show/Hide CSV Operations'):
-                st.header("CSV Operations")
-                
-                # CSV Upload
-                uploaded_file = st.file_uploader("Load Previous Entries", type=['csv'])
-                
-                if uploaded_file is not None:
-                    self.load_csv(uploaded_file)  
-                # Save Current Entries Button
-                if st.button("Save Current Entries"):
-                    self.save_to_csv()
-    
-                
             
+            st.header("CSV Operations")
+            
+            # CSV Upload
+            uploaded_file = st.file_uploader("Load Previous Entries", type=['csv'])
+            
+            if uploaded_file is not None:
+                self.load_csv(uploaded_file)  
+            # Save Current Entries Button
+            if st.button("Save Current Entries"):
+                self.save_to_csv()
+                
+                
+        
         
         # Load data from the selected profile
         self.load_data(selected_profile)
+        
         tab1, tab2 = st.tabs(["Morning Form", "Night Form"])
                 
         with tab1:
@@ -489,10 +489,12 @@ class FitnessTracker:
 
         with tab2:
             self.add_entry_night_form()
+        
         self.create_calorie_fill_up_widget()
         # Display entries and visualizations
-        self.display_entries()
-        self.delete_button()
+        with st.expander("Entries"):
+            self.display_entries()
+            self.delete_button()
         self.create_visualizations()
 
 # Run the app
