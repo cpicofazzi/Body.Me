@@ -65,17 +65,23 @@ class FitnessTracker:
         
         except Exception as e:
             st.error(f"Error loading CSV: {e}")
-    def add_morning_entry(self, entry_date, weight, sleep_hours):
+    def add_morning_entry(self, entry_date, weight, sleep_hours, sleep_quality,
+                          bed_phone, drink_or_smoke, night_terror, dreams_text):
         # Ensure date is datetime
         entry_date = pd.to_datetime(entry_date)
         
         # Check if date already exists in DataFrame
         existing_entries_loc = st.session_state.entries[st.session_state.entries['Date'] == entry_date].index
-        print(existing_entries_loc)
         if not existing_entries_loc.empty:
             for replace_loc in existing_entries_loc.values:
                 st.session_state.entries.loc[replace_loc,"Weight"]= weight
                 st.session_state.entries.loc[replace_loc,"Hours of Sleep"] = sleep_hours
+                st.session_state.entries.loc[replace_loc,"How was sleep?"]= sleep_quality
+                st.session_state.entries.loc[replace_loc,"Did you use phone 30 min before bed?"] = bed_phone
+                st.session_state.entries.loc[replace_loc,"Did I drink of smoke the night before?"]= drink_or_smoke
+                st.session_state.entries.loc[replace_loc,"Night Terror?"] = night_terror
+                st.session_state.entries.loc[replace_loc,"Describe Dreams"]= dreams_text
+                
         else:
             # If date does not exist, add a new row
             st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame(
@@ -83,22 +89,44 @@ class FitnessTracker:
                 'Weight': [weight],
                 'Calories': [0],
                 'Protein': [0],
-                'Hours of Sleep':[sleep_hours]},
+                'Hours of Sleep':[sleep_hours],
+                
+                "How many poops?":[0],
+                'Calories': [0],
+                'Protein': [0],
+                'Carbs':[0],
+                'Fats':[0],
+                
+                "How was the day?":[0],
+                "Work Productivity":[0],
+                "What daily goals did you accomplish?":[''],
+                "What happened?":[''],
+                
+                },
                 index=[len(st.session_state.entries)]
             )], ignore_index=True)
 
-    def add_afternoon_entry(self, entry_date, calories, protein):
+    def add_afternoon_entry(self, entry_date, calories, dumps, protein, carbs, fats, 
+                            day_quality, work_quality, accomplishments, what_happened_text):
+    
         # Ensure date is datetime
         entry_date = pd.to_datetime(entry_date)
         
         # Check if date already exists in DataFrame
         existing_entries_loc = st.session_state.entries[st.session_state.entries['Date'] == entry_date].index
-        print(existing_entries_loc)
+        
         if not existing_entries_loc.empty:
             for replace_loc in existing_entries_loc.values:
                 # If date already exists, append new values to the corresponding row
                 st.session_state.entries.loc[replace_loc,"Calories"]= calories
+                st.session_state.entries.loc[replace_loc,"How many poops?"] = dumps 
                 st.session_state.entries.loc[replace_loc,"Protein"] = protein
+                st.session_state.entries.loc[replace_loc,"Carbs"]= carbs
+                st.session_state.entries.loc[replace_loc,"Fats"] = fats
+                st.session_state.entries.loc[replace_loc,"How was the day?"]= day_quality
+                st.session_state.entries.loc[replace_loc,"Work Productivity"] = work_quality
+                st.session_state.entries.loc[replace_loc,"What daily goals did you accomplish?"]= accomplishments
+                st.session_state.entries.loc[replace_loc,"What happened?"] = work_what_happened_text
             
             
         else:
@@ -106,53 +134,21 @@ class FitnessTracker:
             st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame(
                 {'Date': [entry_date],
                 'Weight': [0],  # assuming morning weight is added separately
+                "How many poops?":[dumps],
                 'Calories': [calories],
                 'Protein': [protein],
-                'Hours of Sleep':[0]},
+                'Carbs':[carbs],
+                'Fats':[fats],
+                'Hours of Sleep':[0],
+                "How was the day?":day_quality,
+                "Work Productivity":work_quality,
+                "What daily goals did you accomplish?":accomplishments,
+                "What happened?":work_what_happened_text,
+                
+                },
                 index=[len(st.session_state.entries)]
             )], ignore_index=True)
-        
-    def add_entry(self, date, weight, calories, protein):
-        """
-        Add a new entry to the fitness tracker with robust error checking
-        """
-        try:
-            # Validate inputs
-            if not date:
-                st.error("Date cannot be empty")
-                return False
-            
-            if weight <= 0:
-                st.error("Weight must be a positive number")
-                return False
-            
-            if calories < 0:
-                st.error("Calories cannot be negative")
-                return False
-            
-            if protein < 0:
-                st.error("Protein cannot be negative")
-                return False
-            
-            # Create a new entry
-            new_entry = pd.DataFrame({
-                'Date': [pd.to_datetime(date)],
-                'Weight': [float(weight)],  # Ensure float conversion
-                'Calories': [int(calories)],  # Ensure integer conversion
-                'Protein':[int(protein)]
-            })
-            
-            # Append to existing entries
-            st.session_state.entries = pd.concat([
-                st.session_state.entries, 
-                new_entry
-            ]).reset_index(drop=True)
-            
-            return True
-        
-        except Exception as e:
-            st.error(f"Error adding entry: {e}")
-            return False
+    
 
     def remove_entry_by_date(self, date_rem):
         """
@@ -205,7 +201,7 @@ class FitnessTracker:
             submit_button = st.form_submit_button("Add Morning Entry")
             
         if submit_button:
-            self.add_morning_entry(entry_date, weight,sleep_hours)
+            self.add_morning_entry(entry_date, weight,sleep_hours,sleep_quality,bed_phone,drink_or_smoke,night_terror,dreams_text)
 
     def add_entry_night_form(self):
         col1, col2, col3= st.columns(3,vertical_alignment='top')
@@ -236,7 +232,7 @@ class FitnessTracker:
             submit_button = st.form_submit_button("Add Night Entry")
 
         if submit_button:
-            self.add_afternoon_entry(entry_date, calories, protein)
+            self.add_afternoon_entry(entry_date, calories,dumps, protein,carbs,fats,day_quality,work_quality,accomplishments,what_happened_text)
     
     def create_calorie_fill_up_widget(self):
         """
@@ -275,8 +271,8 @@ class FitnessTracker:
         if len(st.session_state.entries) > 0:
             # Display the table with index reset
             entries_display = st.session_state.entries.reset_index(drop=True).sort_values('Date',ascending=False)
-            
-            st.dataframe(entries_display)
+            entries_subset = entries_display[['Date','Calories','Weight','Protein']]
+            st.dataframe(entries_subset)
 
     def create_visualizations(self):
         """
@@ -476,8 +472,6 @@ class FitnessTracker:
             if st.button("Save Current Entries"):
                 self.save_to_csv()
                 
-                
-        
         
         # Load data from the selected profile
         self.load_data(selected_profile)
